@@ -3,3 +3,6 @@
 
 # Executables
 bin/
+
+# Ignore Python cache files
+__pycache__/
