@@ -56,7 +56,9 @@ class ClientStrBuilder:
             IndentedWithSpacesString('networks:', 4),
             IndentedWithSpacesString('- testing_net', 6),
             IndentedWithSpacesString('depends_on:', 4),
-            IndentedWithSpacesString('- server', 6)
+            IndentedWithSpacesString('- server', 6),
+            IndentedWithSpacesString('volumes:', 4),
+            IndentedWithSpacesString('- ./config/client/config.yaml:/config.yaml', 6)
         ]
 
         final_result = "\n".join(map(lambda x: str(x), dynamic_lines))

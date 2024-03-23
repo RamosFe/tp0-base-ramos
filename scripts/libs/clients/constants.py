@@ -11,7 +11,8 @@ services:
       - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
-
+    volumes:
+      - ./config/server/config.ini:/config.ini
 """
 
 HARDCODED_DOCKER_COMPOSE_BOTTOM = """
