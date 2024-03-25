@@ -1,8 +1,8 @@
 package common
 
 import (
+	"bufio"
 	"net"
-	"os"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -48,20 +48,35 @@ func (c *Client) createClientSocket() error {
 }
 
 // StartClientLoop sends a single message to the client
-func (c *Client) StartClientLoop(signalChan chan os.Signal) {
+func (c *Client) StartClientLoop(betScanner *bufio.Scanner) {
 	// Create the connection to the server
 	c.createClientSocket()
+	// TODO Change hardcoded
+	batch := NewBatch(8192)
 
 	// Get the bet ticket from environment variables
-	betTicketToSend, err := NewBetTicketFromEnv()
-	if err != nil {
-		log.Errorf("action: get ticket | result: fail | error: %v", err)
-		return
+	for betScanner.Scan() {
+		betTicketToSend, err := NewBetTicketFromStr(betScanner.Text())
+		if err != nil {
+			log.Errorf("action: get ticket | result: fail | error: %v", err)
+			return
+		}
+
+		err = batch.addBetTicket(&betTicketToSend)
+		// The batch is full
+		if err != nil {
+			sendBetBatch(c.conn, &batch)
+
+			// Cleans the batch and add the bet
+			batch.clean()
+			batch.addBetTicket(&betTicketToSend)
+		}
 	}
 
-	// Send bet ticket
-	sendBet(c.conn, &betTicketToSend)
-
+	if !batch.isEmpty() {
+		sendBetBatch(c.conn, &batch)
+	}
+	
 	// Close the connection
 	c.conn.Close()
 }
