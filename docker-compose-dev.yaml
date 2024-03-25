@@ -51,17 +51,6 @@ services:
     volumes:
       - ./config/client/config.yaml:/config.yaml
 
-  netcat:
-    container_name: netcat
-    image: alpine:latest
-    entrypoint: [ "/bin/sh", "./netcat-script.sh" ]
-    networks:
-      - testing_net
-    depends_on:
-      - server
-    volumes:
-      - ./scripts/netcat-script.sh:/netcat-script.sh
-
 networks:
   testing_net:
     ipam:

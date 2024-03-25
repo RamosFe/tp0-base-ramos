@@ -3,6 +3,8 @@ import socket
 import logging
 import sys
 
+from .utils import Bet, store_bets
+from .protocol import AgencySocket
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -11,6 +13,8 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._active_clients = []
+        self._agencies_id = {}
+        self._id_counter = 0
 
         # Define signal handlers
         signal.signal(signal.SIGINT, self.__handle_signal)
@@ -57,11 +61,18 @@ class Server:
         """
         try:
             # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
+            # Receive the message from the client
+            bet = client_sock.recv_tickets()
+
+            addr = client_sock.get_peername()
+            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {vars(bet)}')
+
+            # Stores bet
+            store_bets([bet])
+            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+
+            # Handle properly the ACK
+            client_sock.send("{}\n".format(vars(bet)).encode('utf-8'))
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
@@ -78,5 +89,12 @@ class Server:
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
+        # Adds unique id to address
+        if not addr[0] in self._agencies_id:
+            self._id_counter += 1
+            self._agencies_id[addr[0]] = self._id_counter
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return c
+
+        # Create Agency Socket
+        agency_socket = AgencySocket(str(self._agencies_id[addr[0]]), c)
+        return agency_socket

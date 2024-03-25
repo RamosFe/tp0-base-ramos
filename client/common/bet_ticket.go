@@ -12,7 +12,6 @@ const (
 	EnvDocumentField     = "DOCUMENTO"
 	EnvBirthdayField     = "NACIMIENTO"
 	EnvTicketNumberField = "NUMERO"
-	BirthdayDateLayout   = "1997-09-19"
 )
 
 type BetTicket struct {
