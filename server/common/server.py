@@ -6,6 +6,7 @@ import sys
 from .utils import Bet, store_bets
 from .protocol import AgencySocket
 
+
 class Server:
     def __init__(self, port, listen_backlog):
         # Initialize server socket
@@ -72,7 +73,7 @@ class Server:
             logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
 
             # Handle properly the ACK
-            client_sock.send("{}\n".format(vars(bet)).encode('utf-8'))
+            client_sock.send_ack()
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
