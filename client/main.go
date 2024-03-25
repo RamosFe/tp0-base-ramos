@@ -1,11 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -110,10 +109,17 @@ func main() {
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}
 
-	// Channel that is notified on SIGTERM
-	sigTermChannel := make(chan os.Signal, 1)
-	signal.Notify(sigTermChannel, syscall.SIGTERM)
+	// Open tickets file
+	// TODO Change hardcoded code
+	filePath := os.Getenv("BETFILE")
+	readFile, err := os.Open(filePath)
+	if err != nil {
+		log.Fatalf("No configuration file of path %v", filePath)
+		return
+	}
+	fileScanner := bufio.NewScanner(readFile)
+	fileScanner.Split(bufio.ScanLines)
 
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop(sigTermChannel)
+	client.StartClientLoop(fileScanner)
 }
