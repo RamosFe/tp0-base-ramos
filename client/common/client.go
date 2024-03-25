@@ -2,7 +2,6 @@ package common
 
 import (
 	"bufio"
-	"fmt"
 	"net"
 	"os"
 	"time"
@@ -61,12 +60,13 @@ loop:
 		c.createClientSocket()
 
 		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
-			c.conn,
-			"[CLIENT %v] Message N°%v\n",
-			c.config.ID,
-			msgID,
-		)
+		betTicketToSend, err := NewBetTicketFromEnv()
+		log.Info(betTicketToSend.ToString())
+		if err != nil {
+			log.Errorf("action: get ticket | result: fail | error: %v", err)
+		}
+		message := NewMessage(betTicketToSend)
+		c.conn.Write(message.ToBytes())
 		msg, err := bufio.NewReader(c.conn).ReadString('\n')
 		msgID++
 		c.conn.Close()
