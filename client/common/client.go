@@ -1,8 +1,6 @@
 package common
 
 import (
-	"bufio"
-	"fmt"
 	"net"
 	"os"
 	"time"
@@ -49,56 +47,21 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-// StartClientLoop Send messages to the client until some time threshold is met
+// StartClientLoop sends a single message to the client
 func (c *Client) StartClientLoop(signalChan chan os.Signal) {
-	// autoincremental msgID to identify every message sent
-	msgID := 1
+	// Create the connection to the server
+	c.createClientSocket()
 
-loop:
-	// Send messages if the loopLapse threshold has not been surpassed
-	for timeout := time.After(c.config.LoopLapse); ; {
-		// Create the connection the server in every loop iteration. Send an
-		c.createClientSocket()
-
-		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
-			c.conn,
-			"[CLIENT %v] Message N°%v\n",
-			c.config.ID,
-			msgID,
-		)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
-		msgID++
-		c.conn.Close()
-
-		if err != nil {
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
-			return
-		}
-		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-			c.config.ID,
-			msg,
-		)
-
-		select {
-		case <-timeout:
-			log.Infof("action: timeout_detected | result: success | client_id: %v",
-				c.config.ID,
-			)
-			break loop
-		case <-signalChan:
-			log.Infof("action: sigterm_detected | result: shutdown | client_id: %v",
-				c.config.ID,
-			)
-			break loop
-
-		// Wait a time between sending one message and the next one
-		case <-time.After(c.config.LoopPeriod):
-		}
+	// Get the bet ticket from environment variables
+	betTicketToSend, err := NewBetTicketFromEnv()
+	if err != nil {
+		log.Errorf("action: get ticket | result: fail | error: %v", err)
+		return
 	}
 
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+	// Send bet ticket
+	sendBet(c.conn, &betTicketToSend)
+
+	// Close the connection
+	c.conn.Close()
 }
