@@ -50,16 +50,17 @@ class Server:
         # the server
         while True:
             if self._finished_agencies == MAX_AGENCIES:
+                logging.info("action: sorteo | result: success")
                 bets = load_bets()
-                winners = filter(lambda x: has_won(x), bets)
-                for winner in winners:
-                    print(f"winner: {winner.document}")
+                winners = list(filter(lambda x: has_won(x), bets))
+                for client in self._active_clients:
+                    client.send_winners(winners)
+                    client.close()
                 break
             else:
                 client_sock = self.__accept_new_connection()
                 self._active_clients.append(client_sock)
                 self.__handle_client_connection(client_sock)
-                self._active_clients.remove(client_sock)
 
     def __handle_client_connection(self, client_sock):
         """
@@ -87,8 +88,8 @@ class Server:
             self._finished_agencies += 1
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
-        finally:
             client_sock.close()
+
 
     def __accept_new_connection(self):
         """

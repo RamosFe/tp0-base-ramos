@@ -1,4 +1,5 @@
 import socket
+import struct
 from typing import List, Optional
 
 from .utils import Bet, BET_SEPARATOR
@@ -10,8 +11,21 @@ ACK_NUMBER_OF_BYTES = 1
 
 MSG_TYPE_BET_VALUE = 1
 MSG_TYPE_END_VALUE = 2
+MSG_TYPE_WINNERS_VALUE = 3
 
 MAX_AGENCIES = 5
+
+
+class Message:
+    def __init__(self, msg_type, header, payload):
+        self.msg_type = msg_type
+        self.header = header
+        self.payload = payload
+
+    def to_bytes(self):
+        msg_type_bytes = struct.pack('>H', self.msg_type)
+        header_bytes = struct.pack('>H', self.header)
+        return msg_type_bytes + header_bytes + self.payload
 
 
 class AgencySocket:
@@ -43,6 +57,14 @@ class AgencySocket:
             return None
         else:
             raise ValueError(f'Invalid msg type: {msg_type}')
+
+    def send_winners(self, winners: List[Bet]):
+        list_of_documents = list(map(lambda x: x.document, winners))
+        list_of_documents = ','.join(list_of_documents)
+        documents_bytes = list_of_documents.encode('utf-8')
+
+        message = Message(MSG_TYPE_WINNERS_VALUE, len(documents_bytes), documents_bytes)
+        self._internal_socket.send(message.to_bytes())
 
     def send_ack(self):
         self._internal_socket.send(ACK_VALUE.to_bytes(ACK_NUMBER_OF_BYTES, 'big'))

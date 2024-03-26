@@ -4,16 +4,20 @@ import (
 	"encoding/binary"
 	log "github.com/sirupsen/logrus"
 	"net"
+	"strings"
 )
 
 const MaxBatchSize = 8192
 const AckMsgSize = 1
+const MsgTypeSize = 2
+const HeaderSize = 2
 
 type MsgType uint16
 
 const (
-	BetMsg MsgType = 1
-	EndMsg MsgType = 2
+	BetMsg    MsgType = 1
+	EndMsg    MsgType = 2
+	WinnerMsg MsgType = 3
 )
 
 type ByteConvertable interface {
@@ -117,4 +121,37 @@ func sendEndMsg(connection net.Conn) {
 		log.Errorf("action: send_message | result: fail | error: %v", err)
 		return
 	}
+}
+
+func readWinners(connection net.Conn) []string {
+	// Read Msg Type
+	msgType := make([]byte, MsgTypeSize)
+	_, err := connection.Read(msgType)
+	if err != nil {
+		log.Errorf("action: recive_winners | result: fail | error %v", err)
+	}
+
+	msgTypeValue := binary.BigEndian.Uint16(msgType)
+
+	if msgTypeValue != uint16(WinnerMsg) {
+		log.Errorf("action: recive_winners | result: fail | error expected %v got  %v", WinnerMsg, msgTypeValue)
+	}
+
+	// Read header
+	msgHeader := make([]byte, HeaderSize)
+	_, err = connection.Read(msgHeader)
+	if err != nil {
+		log.Errorf("action: recive_winners | result: fail | error %v", err)
+	}
+
+	msgHeaderValue := binary.BigEndian.Uint16(msgHeader)
+
+	// Read payload
+	msgPayload := make([]byte, msgHeaderValue)
+	_, err = connection.Read(msgPayload)
+	if err != nil {
+		log.Errorf("action: recive_winners | result: fail | error %v", err)
+	}
+	payloadData := string(msgPayload[:])
+	return strings.Split(payloadData, ",")
 }
