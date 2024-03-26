@@ -149,7 +149,7 @@ type Message struct {
 }
 ```
 
-En el caso del ejercicio 5 el `payload` esta compuesto por los campos de un `Bet`. En el protocolo, el orden de los 
+En el caso del ejercicio 5 el `payload` esta compuesto por los campos de un `Bet`. En el protocolo, el orden de los
 campos es el siguiente, donde cada campo es separado por un separador, en este caso `,`:
 
 ```
@@ -179,3 +179,29 @@ En el caso del servidor, al recibir un mensaje del cliente, leer los primeros 2 
 Una vez obtenido el tamaño `N`, lee los proximos `N` bytes para obtener el mensaje completo, separa los fields
 utilizando el separador y obtiene el bet que luego almacena utilizando `store_bets`. Una vez almacenado, manda un ACK
 al cliente.
+
+# Ejercicio 6
+En el ejercicio 6 se agrego un nuevo separador para poder varios bets. Este separador separada los distintos
+bets de la siguiente manera:
+```
+header bet|bet|bet|bet
+```
+
+De este manera el servidor simplemente debe seguir la misma lógica que el ejercicio anterior, pero primero separar
+por el nuevo separador e ir obteniendo cada uno de los bets individualmente. Además se agrego un nuevo `env` variable:
+
+```
+  client2:
+    container_name: client2
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=2
+      - CLI_LOG_LEVEL=DEBUG
+      - BETFILE=/agency.csv
+      - BATCHSIZE=8000
+```
+
+`BATCHSIZE` especifica el tamaño máximo de un batch y este mismo puede tener un valor de hasta `8KB`, por esta
+razón el `header` es representado por un `uint16` que ocupa 2 bytes y puede representar números 
+mayores a `8192 (8KB en bytes)`.

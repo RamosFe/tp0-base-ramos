@@ -61,19 +61,19 @@ class Server:
         client socket will also be closed
         """
         try:
-            # TODO: Modify the receive to avoid short-reads
-            # Receive the message from the client
-            bet = client_sock.recv_tickets()
+            while True:
+                # Receive the message from the client
+                bets = client_sock.recv_tickets()
+                if bets is None:
+                    break
 
-            addr = client_sock.get_peername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {vars(bet)}')
+                # Stores bet
+                store_bets(bets)
+                for bet in bets:
+                    logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
 
-            # Stores bet
-            store_bets([bet])
-            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
-
-            # Handle properly the ACK
-            client_sock.send_ack()
+                # Handle properly the ACK
+                client_sock.send_ack()
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:

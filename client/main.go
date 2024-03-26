@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
-	"os/signal"
+	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -110,10 +110,28 @@ func main() {
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}
 
-	// Channel that is notified on SIGTERM
-	sigTermChannel := make(chan os.Signal, 1)
-	signal.Notify(sigTermChannel, syscall.SIGTERM)
+	// Open tickets file
+	filePath := os.Getenv(EnvBetFileName)
+	readFile, err := os.Open(filePath)
+	if err != nil {
+		log.Fatalf("No configuration file of path %v", filePath)
+		return
+	}
+	fileScanner := bufio.NewScanner(readFile)
+	fileScanner.Split(bufio.ScanLines)
+
+	// Get Batch size
+	batchSize, exists := os.LookupEnv(EnvBatchSizeName)
+	if !exists {
+		log.Fatalf("No batch size specified")
+		return
+	}
+
+	batchSizeNumber, convErr := strconv.ParseInt(batchSize, 10, 16)
+	if convErr != nil || batchSizeNumber > common.MaxBatchSize {
+		log.Fatalf("Invalid batch size: %v %v", batchSize, convErr)
+	}
 
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop(sigTermChannel)
+	client.StartClientLoop(fileScanner, uint16(batchSizeNumber))
 }

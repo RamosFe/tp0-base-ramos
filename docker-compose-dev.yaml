@@ -20,17 +20,15 @@ services:
     environment:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
-      - NOMBRE=Santiago Lionel
-      - APELLIDO=Lorca
-      - DOCUMENTO=30904465
-      - NACIMIENTO=1999-03-17
-      - NUMERO=7574
+      - BETFILE=/agency.csv
+      - BATCHSIZE=8000
     networks:
       - testing_net
     depends_on:
       - server
     volumes:
       - ./config/client/config.yaml:/config.yaml
+      - ./.data/dataset/agency-1.csv:/agency.csv
 
   client2:
     container_name: client2
@@ -39,17 +37,66 @@ services:
     environment:
       - CLI_ID=2
       - CLI_LOG_LEVEL=DEBUG
-      - NOMBRE=Federico
-      - APELLIDO=Ramos
-      - DOCUMENTO=40566677
-      - NACIMIENTO=1997-09-19
-      - NUMERO=6000
+      - BETFILE=/agency.csv
+      - BATCHSIZE=8000
     networks:
       - testing_net
     depends_on:
       - server
     volumes:
       - ./config/client/config.yaml:/config.yaml
+      - ./.data/dataset/agency-2.csv:/agency.csv
+
+  client3:
+    container_name: client3
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=3
+      - CLI_LOG_LEVEL=DEBUG
+      - BETFILE=/agency.csv
+      - BATCHSIZE=8000
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./config/client/config.yaml:/config.yaml
+      - ./.data/dataset/agency-3.csv:/agency.csv
+
+  client4:
+    container_name: client4
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=4
+      - CLI_LOG_LEVEL=DEBUG
+      - BETFILE=/agency.csv
+      - BATCHSIZE=8000
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./config/client/config.yaml:/config.yaml
+      - ./.data/dataset/agency-4.csv:/agency.csv
+
+  client5:
+    container_name: client5
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=5
+      - CLI_LOG_LEVEL=DEBUG
+      - BETFILE=/agency.csv
+      - BATCHSIZE=8000
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./config/client/config.yaml:/config.yaml
+      - ./.data/dataset/agency-5.csv:/agency.csv
 
 networks:
   testing_net:
