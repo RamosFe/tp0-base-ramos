@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -39,7 +40,7 @@ func (c *Client) createClientSocket() error {
 	conn, err := net.Dial("tcp", c.config.ServerAddress)
 	if err != nil {
 		log.Fatalf(
-	        "action: connect | result: fail | client_id: %v | error: %v",
+			"action: connect | result: fail | client_id: %v | error: %v",
 			c.config.ID,
 			err,
 		)
@@ -49,22 +50,13 @@ func (c *Client) createClientSocket() error {
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met
-func (c *Client) StartClientLoop() {
+func (c *Client) StartClientLoop(signalChan chan os.Signal) {
 	// autoincremental msgID to identify every message sent
 	msgID := 1
 
 loop:
 	// Send messages if the loopLapse threshold has not been surpassed
 	for timeout := time.After(c.config.LoopLapse); ; {
-		select {
-		case <-timeout:
-	        log.Infof("action: timeout_detected | result: success | client_id: %v",
-                c.config.ID,
-            )
-			break loop
-		default:
-		}
-
 		// Create the connection the server in every loop iteration. Send an
 		c.createClientSocket()
 
@@ -81,18 +73,31 @@ loop:
 
 		if err != nil {
 			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-                c.config.ID,
+				c.config.ID,
 				err,
 			)
 			return
 		}
 		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-            c.config.ID,
-            msg,
-        )
+			c.config.ID,
+			msg,
+		)
+
+		select {
+		case <-timeout:
+			log.Infof("action: timeout_detected | result: success | client_id: %v",
+				c.config.ID,
+			)
+			break loop
+		case <-signalChan:
+			log.Infof("action: sigterm_detected | result: shutdown | client_id: %v",
+				c.config.ID,
+			)
+			break loop
 
 		// Wait a time between sending one message and the next one
-		time.Sleep(c.config.LoopPeriod)
+		case <-time.After(c.config.LoopPeriod):
+		}
 	}
 
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)

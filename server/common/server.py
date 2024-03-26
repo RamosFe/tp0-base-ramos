@@ -1,5 +1,7 @@
+import signal
 import socket
 import logging
+import sys
 
 
 class Server:
@@ -8,6 +10,26 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        self._active_clients = []
+
+        # Define signal handlers
+        signal.signal(signal.SIGINT, self.__handle_signal)
+        signal.signal(signal.SIGTERM, self.__handle_signal)
+
+    def __handle_signal(self, signum, stack):
+        logging.info(
+            f'action: signal_handler | result: success | signal: {signum}'
+        )
+        # Closes the server socket
+        self._server_socket.close()
+        logging.debug(f'action: close server socket | result: success')
+        # Closes the clients sockets
+        for client in self._active_clients:
+            addr = client.getpeername()
+            logging.info(f'action: close client socket | result: success | ip: {addr[0]}')
+            client.close()
+
+        sys.exit(0)
 
     def run(self):
         """
@@ -22,7 +44,9 @@ class Server:
         # the server
         while True:
             client_sock = self.__accept_new_connection()
+            self._active_clients.append(client_sock)
             self.__handle_client_connection(client_sock)
+            self._active_clients.remove(client_sock)
 
     def __handle_client_connection(self, client_sock):
         """
