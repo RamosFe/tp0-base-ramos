@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -110,8 +111,7 @@ func main() {
 	}
 
 	// Open tickets file
-	// TODO Change hardcoded code
-	filePath := os.Getenv("BETFILE")
+	filePath := os.Getenv(EnvBetFileName)
 	readFile, err := os.Open(filePath)
 	if err != nil {
 		log.Fatalf("No configuration file of path %v", filePath)
@@ -120,6 +120,18 @@ func main() {
 	fileScanner := bufio.NewScanner(readFile)
 	fileScanner.Split(bufio.ScanLines)
 
+	// Get Batch size
+	batchSize, exists := os.LookupEnv(EnvBatchSizeName)
+	if !exists {
+		log.Fatalf("No batch size specified")
+		return
+	}
+
+	batchSizeNumber, convErr := strconv.ParseInt(batchSize, 10, 16)
+	if convErr != nil || batchSizeNumber > common.MaxBatchSize {
+		log.Fatalf("Invalid batch size: %v %v", batchSize, convErr)
+	}
+
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop(fileScanner)
+	client.StartClientLoop(fileScanner, uint16(batchSizeNumber))
 }

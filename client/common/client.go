@@ -3,6 +3,7 @@ package common
 import (
 	"bufio"
 	"net"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -48,11 +49,12 @@ func (c *Client) createClientSocket() error {
 }
 
 // StartClientLoop sends a single message to the client
-func (c *Client) StartClientLoop(betScanner *bufio.Scanner) {
+func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 	// Create the connection to the server
 	c.createClientSocket()
-	// TODO Change hardcoded
-	batch := NewBatch(8192)
+
+	batch := NewBatch(batchSize)
+	var listOfDocuments []string
 
 	// Get the bet ticket from environment variables
 	for betScanner.Scan() {
@@ -62,6 +64,7 @@ func (c *Client) StartClientLoop(betScanner *bufio.Scanner) {
 			return
 		}
 
+		listOfDocuments = append(listOfDocuments, strconv.FormatInt(int64(betTicketToSend.document), 10))
 		err = batch.addBetTicket(&betTicketToSend)
 		// The batch is full
 		if err != nil {
@@ -76,7 +79,29 @@ func (c *Client) StartClientLoop(betScanner *bufio.Scanner) {
 	if !batch.isEmpty() {
 		sendBetBatch(c.conn, &batch)
 	}
-	
+
+	// Send end msg
+	sendEndMsg(c.conn)
+
+	// Recv winners
+	winners := readWinners(c.conn)
+
+	// Filter only the winnera of the agency
+	var listOfWinnersByAgency []string
+	for _, winner := range winners {
+		isContained := false
+		for _, elem := range listOfDocuments {
+			if elem == winner {
+				isContained = true
+			}
+		}
+		if isContained {
+			listOfWinnersByAgency = append(listOfWinnersByAgency, winner)
+		}
+	}
+
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(listOfWinnersByAgency))
+
 	// Close the connection
 	c.conn.Close()
 }
