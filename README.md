@@ -203,5 +203,37 @@ por el nuevo separador e ir obteniendo cada uno de los bets individualmente. Ade
 ```
 
 `BATCHSIZE` especifica el tamaño máximo de un batch y este mismo puede tener un valor de hasta `8KB`, por esta
-razón el `header` es representado por un `uint16` que ocupa 2 bytes y puede representar números 
+razón el `header` es representado por un `uint16` que ocupa 2 bytes y puede representar números
 mayores a `8192 (8KB en bytes)`.
+
+# Ejercicio 7
+
+Se modifica el protocolo para manejar distintos tipos de mensajes, cambiando la estructura a la siguiente:
+
+```
+msgType | header | payload
+```
+
+El `msgType` puede tomar varios valores:
+- BetMsg: Representa un mensaje que contiene las apuestas de una agencia. Usado por el cliente para
+enviar las apuestas.
+- EndMsg: Representa un mensaje que señaliza la finalización del envio de apuestas. Usado por el cliente
+para notificar al servidor que no se va a mandar más nuevas apuestas.
+- WinnerMsg: Representa un mensaje con los documentos de los ganadores. Utilizado por el servidor para enviar
+la información de los ganadores al cliente.
+
+De esta manera, a la hora de decodificar, primero se leen los primers 2 bytes del mensaje para luego, dependiendo
+del tipo, procesar la data de manera distinta. En el caso de el nuevo mensaje `WinnerMsg`, se trabaja igual que el
+`BetMsg` nada más que en vez de leer bets en el payload, lee una lista de documentos.
+
+## Flujo del cliente
+
+El cliente empieza a leer los bets del archivo y enviando batches al servidor. Una vez que termina de enviar todas
+las apuestas, envia un mensaje del tipo `EndMsg` para notificarle al servidor que ya no va a enviar más información.
+Finalmente, el cliente se pone a esperar un mensaje del tipo `WinnerMsg` con los ganadores del sorteo.
+
+## Flujo del servidor
+Una vez que establece la conexión con el cliente, va recibiendo y parseando cada uno de los batches. Una vez que
+recibe el mensaje con de tipo `EndMsg`, agrega 1 al contador interno del servidor y termina de esperar data del cliente.
+Una vez que el contador llega al máximo, el servidor procesa los ganadores y va iterando por cada una de sus conexiones
+para enviar un mensaje del tipo `WinnerMsg` con la información de los ganadores.
