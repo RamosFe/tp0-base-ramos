@@ -95,13 +95,13 @@ Para el caso del cliente se agrego un `channel` encargado de recibir un mensaje 
 	signal.Notify(sigTermChannel, syscall.SIGTERM)
 ```
 
-Una vez seteado el channel, se le pasa a la función `StartClientLoop` donde se utiliza un `select` para 
+Una vez seteado el channel, se le pasa a la función `StartClientLoop` donde se utiliza un `select` para
 responder al primer "evento" que ocurra primero. Hay 3 posibles eventos:
 - Timeout Loop: El primer evento es triggereado cuando se pasa el tiempo configurado en `loop.lapse` que especifica
-la duración del loop del cliente.
+  la duración del loop del cliente.
 - signalChan: El segundo evento es triggereado cuando se recibe la notificación del `SIGTERM`.
 - Timeout LoopPeriod: El tercer evento es triggeread cuando se pasa el tiempo configurado en `loop.period` que determina
-el periodo de tiempo a esperar entre cada mensaje.
+  el periodo de tiempo a esperar entre cada mensaje.
 
 ```
 		select {
@@ -132,3 +132,50 @@ En el caso del server se agregaron las siguientes lineas:
 Esto define `handlers` para cuando llegue las `signals` `SIGINT` y `SIGTERM`. El método `__handle_signal`
 se encarga de cerrar todos los sockets activos de clientes, luego el socket del servidor y finalmente dar
 de baja el mismo.
+
+# Ejercicio 5
+Se agrega un protocolo que se compone de la siguiente manera:
+- Header: Un número de 2 bytes que representa el tamaño del payload.
+- Payload: El contenido del mensaje
+
+Este estructura para el protocolo nos permite mandar mensajes de un tamaño variable , permitiendo al servidor
+conocer este tamaño al leer los primeros 2 bytes del mensaje, evitando `short reads`. Un mensaje del procolo se ve
+de la siguiente manera:
+```go
+// Ejemplo de estructura de un mensaje
+type Message struct {
+	header  uint16
+	payload []byte
+}
+```
+
+En el caso del ejercicio 5 el `payload` esta compuesto por los campos de un `Bet`. En el protocolo, el orden de los 
+campos es el siguiente, donde cada campo es separado por un separador, en este caso `,`:
+
+```
+nombre,apellido,documento,cumpleaños,numero
+```
+
+Que bet envia cada cliente es seteado utilizando `env` variables de la siguiente manera:
+```
+  client2:
+    container_name: client2
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID=2
+      - CLI_LOG_LEVEL=DEBUG
+      - NOMBRE=Federico
+      - APELLIDO=Ramos
+      - DOCUMENTO=40566677
+      - NACIMIENTO=1997-09-19
+      - NUMERO=6000
+```
+
+Una vez que el `Bet` es enviado por socket, el cliente espera un `ACK` (compuesto principalmente por un mensaje
+que retorna `1` o `0` dependiendo de si hay un error o no).
+
+En el caso del servidor, al recibir un mensaje del cliente, leer los primeros 2 bytes para obtener el tamaño del `payload`.
+Una vez obtenido el tamaño `N`, lee los proximos `N` bytes para obtener el mensaje completo, separa los fields
+utilizando el separador y obtiene el bet que luego almacena utilizando `store_bets`. Una vez almacenado, manda un ACK
+al cliente.
