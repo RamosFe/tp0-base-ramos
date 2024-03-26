@@ -54,3 +54,33 @@ los contenidos dentro del container de la siguiente manera:
 El mount bind nos permite inyectar la configuración de cada uno de los containers sin la necesidad
 de rebuildear la imagen, al igual que nos permite hacer la aplicación más segura debido a que la configuración
 no queda persistida en la imagen a la hora de buildearla.
+
+# Ejercicio 3
+Para el ejercicio 3 se creo el script `scripts/netcat-script.sh`:
+
+```
+RESPONSE=$(echo "Testing Message" | nc "server:12345")
+echo "$RESPONSE"
+
+```
+
+El script se encarga de enviar un mensaje al servidor e imprimir el resultado que devuelve el servidor. Para ejecutar
+este script dentro de la red que levanta `docker` se agrego un nuevo servicio a la definición del `docker-compose`:
+
+```
+  netcat:
+    container_name: netcat
+    image: alpine:latest
+    entrypoint: [ "/bin/sh", "./netcat-script.sh" ]
+    networks:
+      - testing_net
+    depends_on:
+      - server
+    volumes:
+      - ./scripts/netcat-script.sh:/netcat-script.sh
+```
+
+Este servicio usa como imagen base `alpine:latest`. Se utilizo esta imagen debido a que tiene todas
+las funcionalidades necesarias y solo pesa `5MB`, haciendola ideal para la ejecución de scripts de este
+estilo. Además se utilizo un mount bind para mappear el script en la maquina host con el container y asi
+poder probar el script sin necesidad de rebuildear la imagen.
