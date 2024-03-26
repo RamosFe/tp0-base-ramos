@@ -9,28 +9,57 @@ import (
 const MaxBatchSize = 8192
 const AckMsgSize = 1
 
+type MsgType uint16
+
+const (
+	BetMsg MsgType = 1
+	EndMsg MsgType = 2
+)
+
 type ByteConvertable interface {
 	ToBytes() []byte
 }
 
 type Message struct {
+	msgType MsgType
 	header  uint16
 	payload []byte
+}
+
+type EndMessage struct {
+	msgType MsgType
+}
+
+func NewEndMessage() EndMessage {
+	return EndMessage{
+		msgType: EndMsg,
+	}
 }
 
 func NewMessage(payload ByteConvertable) Message {
 	payloadBytes := payload.ToBytes()
 	return Message{
+		msgType: BetMsg,
 		header:  uint16(len(payloadBytes)),
 		payload: payloadBytes,
 	}
 }
 
 func (m *Message) ToBytes() []byte {
+	msgTypeBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(msgTypeBytes, uint16(m.msgType))
+
 	headerBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(headerBytes, m.header)
 
-	return append(headerBytes, m.payload...)
+	return append(append(msgTypeBytes, headerBytes...), m.payload...)
+}
+
+func (m *EndMessage) ToBytes() []byte {
+	msgTypeBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(msgTypeBytes, uint16(m.msgType))
+
+	return msgTypeBytes
 }
 
 func sendBet(connection net.Conn, ticket *BetTicket) {
@@ -79,4 +108,14 @@ func sendBetBatch(connection net.Conn, batch *BetTicketBatch) {
 			)
 		}
 	}
+}
+
+func sendEndMsg(connection net.Conn) {
+	message := NewEndMessage()
+	_, err := connection.Write(message.ToBytes())
+	if err != nil {
+		log.Errorf("action: send_message | result: fail | error: %v", err)
+		return
+	}
+
 }
