@@ -12,6 +12,6 @@ if __name__ == '__main__':
         text_to_add.append(str(client_builder.build(i)))
     text_to_add.append(HARDCODED_DOCKER_COMPOSE_BOTTOM)
 
-    with open(f'docker-compose-clients{args.clients}.yaml', 'w') as file:
+    with open(f'../docker-compose-clients{args.clients}.yaml', 'w') as file:
         file.write('\n'.join(text_to_add))
 
