@@ -48,11 +48,11 @@ func (c *Client) createClientSocket() error {
 }
 
 // StartClientLoop sends a single message to the client
-func (c *Client) StartClientLoop(betScanner *bufio.Scanner) {
+func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 	// Create the connection to the server
 	c.createClientSocket()
 	// TODO Change hardcoded
-	batch := NewBatch(8192)
+	batch := NewBatch(batchSize)
 
 	// Get the bet ticket from environment variables
 	for betScanner.Scan() {
@@ -76,7 +76,7 @@ func (c *Client) StartClientLoop(betScanner *bufio.Scanner) {
 	if !batch.isEmpty() {
 		sendBetBatch(c.conn, &batch)
 	}
-	
+
 	// Close the connection
 	c.conn.Close()
 }

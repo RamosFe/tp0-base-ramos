@@ -6,6 +6,7 @@ import (
 	"net"
 )
 
+const MaxBatchSize = 8192
 const AckMsgSize = 1
 
 type ByteConvertable interface {
