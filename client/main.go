@@ -111,8 +111,7 @@ func main() {
 	}
 
 	// Open tickets file
-	// TODO Change hardcoded code
-	filePath := os.Getenv("BETFILE")
+	filePath := os.Getenv(EnvBetFileName)
 	readFile, err := os.Open(filePath)
 	if err != nil {
 		log.Fatalf("No configuration file of path %v", filePath)
@@ -122,7 +121,7 @@ func main() {
 	fileScanner.Split(bufio.ScanLines)
 
 	// Get Batch size
-	batchSize, exists := os.LookupEnv("BATCHSIZE")
+	batchSize, exists := os.LookupEnv(EnvBatchSizeName)
 	if !exists {
 		log.Fatalf("No batch size specified")
 		return
