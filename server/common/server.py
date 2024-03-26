@@ -3,8 +3,8 @@ import socket
 import logging
 import sys
 
-from .utils import Bet, store_bets
-from .protocol import AgencySocket
+from .utils import Bet, store_bets, load_bets, has_won
+from .protocol import AgencySocket, MAX_AGENCIES
 
 
 class Server:
@@ -16,6 +16,7 @@ class Server:
         self._active_clients = []
         self._agencies_id = {}
         self._id_counter = 0
+        self._finished_agencies = 0
 
         # Define signal handlers
         signal.signal(signal.SIGINT, self.__handle_signal)
@@ -48,10 +49,17 @@ class Server:
         # TODO: Modify this program to handle signal to graceful shutdown
         # the server
         while True:
-            client_sock = self.__accept_new_connection()
-            self._active_clients.append(client_sock)
-            self.__handle_client_connection(client_sock)
-            self._active_clients.remove(client_sock)
+            if self._finished_agencies == MAX_AGENCIES:
+                bets = load_bets()
+                winners = filter(lambda x: has_won(x), bets)
+                for winner in winners:
+                    print(f"winner: {winner.document}")
+                break
+            else:
+                client_sock = self.__accept_new_connection()
+                self._active_clients.append(client_sock)
+                self.__handle_client_connection(client_sock)
+                self._active_clients.remove(client_sock)
 
     def __handle_client_connection(self, client_sock):
         """
@@ -74,6 +82,9 @@ class Server:
 
                 # Handle properly the ACK
                 client_sock.send_ack()
+
+            # Add 1 to finished agencies
+            self._finished_agencies += 1
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:

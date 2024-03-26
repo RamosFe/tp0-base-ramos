@@ -11,6 +11,8 @@ ACK_NUMBER_OF_BYTES = 1
 MSG_TYPE_BET_VALUE = 1
 MSG_TYPE_END_VALUE = 2
 
+MAX_AGENCIES = 5
+
 
 class AgencySocket:
     def __init__(self, agency_id: str, sock: socket.socket):

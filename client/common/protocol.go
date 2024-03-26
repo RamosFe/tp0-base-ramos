@@ -117,5 +117,4 @@ func sendEndMsg(connection net.Conn) {
 		log.Errorf("action: send_message | result: fail | error: %v", err)
 		return
 	}
-
 }
