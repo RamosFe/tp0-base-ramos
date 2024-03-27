@@ -216,11 +216,11 @@ msgType | header | payload
 
 El `msgType` puede tomar varios valores:
 - BetMsg: Representa un mensaje que contiene las apuestas de una agencia. Usado por el cliente para
-enviar las apuestas.
+  enviar las apuestas.
 - EndMsg: Representa un mensaje que señaliza la finalización del envio de apuestas. Usado por el cliente
-para notificar al servidor que no se va a mandar más nuevas apuestas.
+  para notificar al servidor que no se va a mandar más nuevas apuestas.
 - WinnerMsg: Representa un mensaje con los documentos de los ganadores. Utilizado por el servidor para enviar
-la información de los ganadores al cliente.
+  la información de los ganadores al cliente.
 
 De esta manera, a la hora de decodificar, primero se leen los primers 2 bytes del mensaje para luego, dependiendo
 del tipo, procesar la data de manera distinta. En el caso de el nuevo mensaje `WinnerMsg`, se trabaja igual que el
@@ -237,3 +237,76 @@ Una vez que establece la conexión con el cliente, va recibiendo y parseando cad
 recibe el mensaje con de tipo `EndMsg`, agrega 1 al contador interno del servidor y termina de esperar data del cliente.
 Una vez que el contador llega al máximo, el servidor procesa los ganadores y va iterando por cada una de sus conexiones
 para enviar un mensaje del tipo `WinnerMsg` con la información de los ganadores.
+
+# Ejercicio 8
+En el ejercicio 8 se cambio a una arquitectura multiprocesos utilizando la libreria `multiprocessing`. Y se agregaron las siguientes
+modificaciones al servidor:
+
+```
+class Server:
+    def __init__(self, port, listen_backlog):
+        # Initialize server socket
+        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server_socket.bind(('', port))
+        self._server_socket.listen(listen_backlog)
+
+        # Define a process manager
+        manager = multiprocessing.Manager()
+
+        # Define locks
+        self._locks = {
+            'store_bets': manager.Lock(),
+            'finished_agencies': manager.Lock()
+        }
+
+        # Define shared state
+        self._shared_data = manager.dict({
+            'finished_agencies': 0
+        })
+
+        self._active_clients = []
+        self._agencies_id = {}
+        self._id_counter = 0
+
+        # List of processes
+        self._processes = []
+
+        # Define signal handlers
+        signal.signal(signal.SIGINT, self.__handle_signal)
+        signal.signal(signal.SIGTERM, self.__handle_signal)
+```
+
+Lo primero a destacar es que se define el proceso como `manager`, permitiendo a la data en `self._shared_data` ser accedida
+por otros subprocesos, al igual que se agregaron 2 locks en `self._locks`, uno para los procesos accedan 1 a la vez
+a `store_bets` y otro utilizado para sumar de manera atómica `finished_agencies`. Tambien se cambio como se maneja
+los clientes, creando un proceso para cada uno:
+
+```
+    def run(self):
+        """
+        Dummy Server loop
+
+        Server that accept a new connections and establishes a
+        communication with a client. After client with communucation
+        finishes, servers starts to accept new connections again
+        """
+        while True:
+            client_sock = self.__accept_new_connection()
+
+            # End server if already has a winner
+            if self._shared_data['finished_agencies'] == MAX_AGENCIES:
+                client_sock.close()
+                break
+
+            self._active_clients.append(client_sock)
+
+            # Creates new process for the client
+            client_process = multiprocessing.Process(
+                target=self.__handle_client_connection, args=(client_sock, self._locks)
+            )
+            client_process.start()
+            self._processes.append(client_process)
+```
+
+Finalmente, se triggerea el procesamiento de winners cuando el proceso que incrementa al contador llega a su máximo valor,
+iniciando el proceso de envio de winners desde ese proceso.
