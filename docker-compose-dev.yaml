@@ -45,6 +45,7 @@ services:
     container_name: netcat
     image: alpine:latest
     entrypoint: [ "/bin/sh", "./netcat-script.sh" ]
+    profiles: [netcat]
     networks:
       - testing_net
     depends_on:
