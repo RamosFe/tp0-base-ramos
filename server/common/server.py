@@ -1,5 +1,7 @@
+import signal
 import socket
 import logging
+import sys
 
 
 class Server:
@@ -8,6 +10,20 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        self._active_clients = []
+        self._running = True
+
+        # Define signal handlers
+        signal.signal(signal.SIGINT, self.__handle_signal)
+        signal.signal(signal.SIGTERM, self.__handle_signal)
+
+    def __handle_signal(self, signum, stack):
+        logging.info(f'action: signal_handler | result: success | signal: {signum}')
+        # Starts shutdown
+        self.__shutdown()
+        # Set running to false
+        self._running = False
+        return
 
     def run(self):
         """
@@ -20,9 +36,20 @@ class Server:
 
         # TODO: Modify this program to handle signal to graceful shutdown
         # the server
-        while True:
-            client_sock = self.__accept_new_connection()
-            self.__handle_client_connection(client_sock)
+        while self._running:
+            try:
+                client_sock = self.__accept_new_connection()
+                self._active_clients.append(client_sock)
+                self.__handle_client_connection(client_sock)
+                self._active_clients.remove(client_sock)
+            except OSError as err:
+                # The server is shutting down
+                if not self._running:
+                    return
+
+                # The server has an internal error, starts shutdown
+                logging.error(f'action: new connection | result: fail | error: {err}')
+                self.__shutdown()
 
     def __handle_client_connection(self, client_sock):
         """
@@ -39,7 +66,7 @@ class Server:
             # TODO: Modify the send to avoid short-writes
             client_sock.send("{}\n".format(msg).encode('utf-8'))
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
 
@@ -56,3 +83,14 @@ class Server:
         c, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
+
+    def __shutdown(self):
+        # Closes the clients sockets
+        for client in self._active_clients:
+            addr = client.getpeername()
+            logging.info(f'action: close client socket | result: success | ip: {addr[0]}')
+            client.close()
+
+        # Closes the server socket
+        self._server_socket.close()
+        logging.debug(f'action: close server socket | result: success')
