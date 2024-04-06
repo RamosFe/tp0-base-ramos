@@ -72,6 +72,7 @@ este script dentro de la red que levanta `docker` se agrego un nuevo servicio a 
     container_name: netcat
     image: alpine:latest
     entrypoint: [ "/bin/sh", "./netcat-script.sh" ]
+    profiles: [netcat]
     networks:
       - testing_net
     depends_on:
@@ -85,6 +86,17 @@ las funcionalidades necesarias y solo pesa `5MB`, haciendola ideal para la ejecu
 estilo. Además se utilizo un mount bind para mappear el script en la maquina host con el container y asi
 poder probar el script sin necesidad de rebuildear la imagen.
 
+Tambien se agregaron nuevos targets en el `Makefile` para el manejo de docker compose con el profile `netcat`. Los
+nuevos targets son los siguientes:
+- `docker-compose-netcat-up`: Equivalente a `docker-compose-up` pero usando el `profile` netcat.
+- `docker-compose-netcat-logs`: Equivalente a `docker-compose-logs` pero usando el `profile` netcat.
+- `docker-compose-netcat-down`: Equivalente a `docker-compose-down` pero usando el `profile` netcat.
+
+> Aclaración: Si se utiliza `docker-compose-netcat-up` para levantar el ambiente, se debe utilizar los targets
+> que incluyen el `profile` netcat para acceder a los logs y para terminar su ejecución y remover los
+> respectivos containers, networks, volumenes, e imágenes.
+
+
 # Ejercicio 4
 ### Cliente
 Para el caso del cliente se agrego un `channel` encargado de recibir un mensaje cuando se triggerea un `SIGTERM`:
@@ -95,13 +107,13 @@ Para el caso del cliente se agrego un `channel` encargado de recibir un mensaje 
 	signal.Notify(sigTermChannel, syscall.SIGTERM)
 ```
 
-Una vez seteado el channel, se le pasa a la función `StartClientLoop` donde se utiliza un `select` para 
+Una vez seteado el channel, se le pasa a la función `StartClientLoop` donde se utiliza un `select` para
 responder al primer "evento" que ocurra primero. Hay 3 posibles eventos:
 - Timeout Loop: El primer evento es triggereado cuando se pasa el tiempo configurado en `loop.lapse` que especifica
-la duración del loop del cliente.
+  la duración del loop del cliente.
 - signalChan: El segundo evento es triggereado cuando se recibe la notificación del `SIGTERM`.
 - Timeout LoopPeriod: El tercer evento es triggeread cuando se pasa el tiempo configurado en `loop.period` que determina
-el periodo de tiempo a esperar entre cada mensaje.
+  el periodo de tiempo a esperar entre cada mensaje.
 
 ```
 		select {
