@@ -8,6 +8,9 @@ STORAGE_FILEPATH = "./bets.csv"
 """ Simulated winner number in the lottery contest. """
 LOTTERY_WINNER_NUMBER = 7574
 
+BET_FIELDS_SEPARATOR = ','
+BET_SEPARATOR = '|'
+
 
 """ A lottery bet registry. """
 class Bet:
@@ -25,13 +28,13 @@ class Bet:
         self.number = int(number)
 
     @staticmethod
-    def from_str(agency: str, data: str):
-        separated_str = data.split(',')
-        if len(separated_str) != 5:
+    def from_str(data: str):
+        separated_str = data.split(BET_FIELDS_SEPARATOR)
+        if len(separated_str) != 6:
             raise ValueError(f'Invalid message: {data}')
 
         return Bet(
-            agency=agency,
+            agency=separated_str[5],
             first_name=separated_str[0],
             last_name=separated_str[1],
             document=separated_str[2],

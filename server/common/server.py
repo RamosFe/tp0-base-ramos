@@ -3,7 +3,7 @@ import socket
 import logging
 
 from .utils import store_bets
-from .protocol import AgencySocket
+from .protocol import AgencySocket, SEND_BET_MSG_TYPE, END_SEND_BET_MSG_TYPE, CLOSE_CONNECTION_MSG_TYPE
 
 
 class Server:
@@ -14,7 +14,6 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self._active_clients = []
 
-        self._agencies_id = {}
         self._id_counter = 0
         self._running = True
 
@@ -63,23 +62,33 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+        agency_id = None
+
         try:
-            # TODO: Modify the receive to avoid short-reads
-            # Receive the message from the client
-            bet = client_sock.recv_tickets()
+            while True:
+                msg_type = client_sock.recv_msg_type()
+                if msg_type == SEND_BET_MSG_TYPE:
+                    # Receive the message from the client
+                    bets = client_sock.recv_tickets()
 
-            addr = client_sock.get_peername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {vars(bet)}')
+                    # Stores bet
+                    store_bets(bets)
+                    for bet in bets:
+                        if not agency_id:
+                            agency_id = bet.agency
+                        logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
 
-            # Stores bet
-            store_bets([bet])
-            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
-
-            # Handle properly the ACK
-            client_sock.send_ack()
+                    # Handle properly the ACK
+                    client_sock.send_ack()
+                elif msg_type == END_SEND_BET_MSG_TYPE:
+                    logging.info(f'action: fin de envio de apuestas | result: success | agency: {agency_id}')
+                elif msg_type == CLOSE_CONNECTION_MSG_TYPE:
+                    logging.info(f'action: mensaje de fin de conexión | result: success | agency: {agency_id}')
+                    break
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
+            logging.info(f'action: close client socket | result: success | agency: {agency_id}')
             client_sock.close()
 
     def __accept_new_connection(self):
@@ -93,14 +102,10 @@ class Server:
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
-        # Adds unique id to address
-        if not addr[0] in self._agencies_id:
-            self._id_counter += 1
-            self._agencies_id[addr[0]] = self._id_counter
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
 
         # Create Agency Socket
-        agency_socket = AgencySocket(str(self._agencies_id[addr[0]]), c)
+        agency_socket = AgencySocket(c)
         return agency_socket
 
     def __shutdown(self):

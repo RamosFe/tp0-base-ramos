@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
-	"os/signal"
+	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -110,10 +110,40 @@ func main() {
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}
 
-	// Channel that is notified on SIGTERM
-	sigTermChannel := make(chan os.Signal, 1)
-	signal.Notify(sigTermChannel, syscall.SIGTERM)
+	// Open tickets file
+	filePath := os.Getenv(EnvBetFileName)
+	readFile, err := os.Open(filePath)
+	if err != nil {
+		log.Fatalf("No configuration file of path %v", filePath)
+		return
+	}
+	fileScanner := bufio.NewScanner(readFile)
+	fileScanner.Split(bufio.ScanLines)
 
-	client := common.NewClient(clientConfig)
-	client.StartClientLoop(sigTermChannel)
+	// Get Batch size
+	batchSize, exists := os.LookupEnv(EnvBatchSizeName)
+	if !exists {
+		log.Fatalf("No batch size specified")
+		return
+	}
+
+	batchSizeNumber, convErr := strconv.ParseInt(batchSize, 10, 16)
+	if convErr != nil || batchSizeNumber > common.MaxBatchSize {
+		log.Fatalf("Invalid batch size: %v %v", batchSize, convErr)
+	}
+
+	// Get Agency ID
+	agencyIdStr, exists := os.LookupEnv(EnvAgencyId)
+	if !exists {
+		log.Fatalf("No agency id specified")
+		return
+	}
+
+	agencyId, convErr := strconv.ParseUint(agencyIdStr, 10, 8)
+	if convErr != nil {
+		log.Fatalf("Invalid agency id: %v %v", agencyIdStr, convErr)
+	}
+
+	client := common.NewClient(byte(agencyId), clientConfig)
+	client.StartClientLoop(fileScanner, uint16(batchSizeNumber))
 }

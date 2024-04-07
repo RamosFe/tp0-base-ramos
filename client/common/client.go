@@ -1,8 +1,8 @@
 package common
 
 import (
+	"bufio"
 	"net"
-	"os"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -19,14 +19,16 @@ type ClientConfig struct {
 // Client Entity that encapsulates how
 type Client struct {
 	config ClientConfig
+	id     uint8
 	conn   net.Conn
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
-func NewClient(config ClientConfig) *Client {
+func NewClient(id uint8, config ClientConfig) *Client {
 	client := &Client{
 		config: config,
+		id:     id,
 	}
 	return client
 }
@@ -48,19 +50,39 @@ func (c *Client) createClientSocket() error {
 }
 
 // StartClientLoop sends a single message to the client
-func (c *Client) StartClientLoop(signalChan chan os.Signal) {
+func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 	// Create the connection to the server
 	c.createClientSocket()
+	batch := NewBatch(batchSize)
 
 	// Get the bet ticket from environment variables
-	betTicketToSend, err := NewBetTicketFromEnv()
-	if err != nil {
-		log.Errorf("action: get ticket | result: fail | error: %v", err)
-		return
+	for betScanner.Scan() {
+		betTicketToSend, err := NewBetTicketFromStr(c.id, betScanner.Text())
+		if err != nil {
+			log.Errorf("action: get ticket | result: fail | error: %v", err)
+			return
+		}
+
+		err = batch.addBetTicket(&betTicketToSend)
+		// The batch is full
+		if err != nil {
+			sendBetBatch(c.conn, &batch)
+
+			// Cleans the batch and add the bet
+			batch.clean()
+			batch.addBetTicket(&betTicketToSend)
+		}
 	}
 
-	// Send bet ticket
-	sendBet(c.conn, &betTicketToSend)
+	if !batch.isEmpty() {
+		sendBetBatch(c.conn, &batch)
+	}
+
+	// Send End bet batches
+	sendEndSendBet(c.conn)
+
+	// Send close connection signal
+	sendCloseConnection(c.conn)
 
 	// Close the connection
 	c.conn.Close()
