@@ -4,17 +4,23 @@ import (
 	"encoding/binary"
 	log "github.com/sirupsen/logrus"
 	"net"
+	"strings"
 )
 
 const MaxBatchSize = 8192
+const HeaderSize = 2
 const AckMsgSize = 1
+const MsgTypeSize = 1
 
 type MessageType byte
 
 const (
-	SendBet         MessageType = 1
-	EndSendBet      MessageType = 2
-	CloseConnection MessageType = 3
+	SendBet           MessageType = 1
+	EndSendBet        MessageType = 2
+	CloseConnection   MessageType = 3
+	RequestWinner     MessageType = 4
+	UnavailableWinner MessageType = 5
+	AvailableWinner   MessageType = 6
 )
 
 type ByteConvertable interface {
@@ -26,7 +32,7 @@ type Message struct {
 	payload []byte
 }
 
-type SendBetMessage struct {
+type PayloadMessage struct {
 	msgType MessageType
 	msg     Message
 }
@@ -50,14 +56,21 @@ func (m *Message) ToBytes() []byte {
 	return append(headerBytes, m.payload...)
 }
 
-func NewSendBetMessage(payload ByteConvertable) SendBetMessage {
-	return SendBetMessage{
+func NewSendBetMessage(payload ByteConvertable) PayloadMessage {
+	return PayloadMessage{
 		msgType: SendBet,
 		msg:     NewMessage(payload),
 	}
 }
 
-func (m *SendBetMessage) ToBytes() []byte {
+func NewRequestWinnersMessage(payload ByteConvertable) PayloadMessage {
+	return PayloadMessage{
+		msgType: RequestWinner,
+		msg:     NewMessage(payload),
+	}
+}
+
+func (m *PayloadMessage) ToBytes() []byte {
 	buffer := []byte{byte(m.msgType)}
 	msgBytes := m.msg.ToBytes()
 
@@ -103,6 +116,58 @@ func sendBetBatch(connection net.Conn, batch *BetTicketBatch) {
 			)
 		}
 	}
+}
+
+func sendRequestWinner(connection net.Conn, agencyId byte) []string {
+	message := NewRequestWinnersMessage(NewWinnerRequest(agencyId))
+	err := writeToSocket(connection, message.ToBytes())
+	if err != nil {
+		log.Errorf("action: send_message | result: fail | error: %v", err)
+		return nil
+	}
+
+	// Read response message type
+	msgType := make([]byte, MsgTypeSize)
+	err = readFromSocket(connection, &msgType, MsgTypeSize)
+	if err != nil {
+		log.Errorf("action: receive_winners | result: fail | error: %v", err)
+		return nil
+	}
+
+	if msgType[0] == byte(AvailableWinner) {
+		// Read header
+		msgHeader := make([]byte, HeaderSize)
+		err = readFromSocket(connection, &msgHeader, HeaderSize)
+		if err != nil {
+			log.Errorf("action: recive_winners | result: fail | error %v", err)
+		}
+
+		msgHeaderValue := binary.BigEndian.Uint16(msgHeader)
+
+		// Read payload
+		msgPayload := make([]byte, msgHeaderValue)
+		err = readFromSocket(connection, &msgPayload, int(msgHeaderValue))
+		if err != nil {
+			log.Errorf("action: recive_winners | result: fail | error %v", err)
+		}
+		payloadData := string(msgPayload[:])
+		listOfDocuments := strings.Split(payloadData, ",")
+		var finalList []string
+
+		for _, field := range listOfDocuments {
+			if field != "" {
+				finalList = append(finalList, field)
+			}
+		}
+
+		return finalList
+	}
+
+	if msgType[0] == byte(UnavailableWinner) {
+		return nil
+	}
+
+	return nil
 }
 
 func sendEndSendBet(connection net.Conn) {

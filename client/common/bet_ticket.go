@@ -31,6 +31,20 @@ type BetTicketBatch struct {
 	bets  []*BetTicket
 }
 
+type WinnerRequest struct {
+	agencyId byte
+}
+
+func NewWinnerRequest(id byte) WinnerRequest {
+	return WinnerRequest{
+		agencyId: id,
+	}
+}
+
+func (w WinnerRequest) ToBytes() []byte {
+	return []byte{w.agencyId}
+}
+
 func NewBatch(limit uint16) BetTicketBatch {
 	return BetTicketBatch{
 		limit: limit,

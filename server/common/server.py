@@ -3,7 +3,8 @@ import socket
 import logging
 
 from .utils import store_bets, load_bets, has_won
-from .protocol import AgencySocket, SEND_BET_MSG_TYPE, END_SEND_BET_MSG_TYPE, CLOSE_CONNECTION_MSG_TYPE, MAX_AGENCIES
+from .protocol import AgencySocket, SEND_BET_MSG_TYPE, \
+    END_SEND_BET_MSG_TYPE, CLOSE_CONNECTION_MSG_TYPE, MAX_AGENCIES, REQUEST_WINNER_MSG_TYPE
 
 
 class Server:
@@ -40,8 +41,6 @@ class Server:
         finishes, servers starts to accept new connections again
         """
 
-        # TODO: Modify this program to handle signal to graceful shutdown
-        # the server
         while self._running:
             # Check if it is time to get the winners
             if self._finished_agencies == MAX_AGENCIES:
@@ -84,7 +83,8 @@ class Server:
                     for bet in bets:
                         if not agency_id:
                             agency_id = bet.agency
-                        logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+                        logging.info(f'action: apuesta_almacenada | result: success | '
+                                     f'dni: {bet.document} | numero: {bet.number}')
 
                     # Handle properly the ACK
                     client_sock.send_ack()
@@ -96,6 +96,19 @@ class Server:
                 elif msg_type == CLOSE_CONNECTION_MSG_TYPE:
                     logging.info(f'action: mensaje de fin de conexión | result: success | agency: {agency_id}')
                     break
+                elif msg_type == REQUEST_WINNER_MSG_TYPE:
+                    requested_agency = client_sock.recv_agency_id()
+                    agency_id = requested_agency
+
+                    if self._finished_agencies == MAX_AGENCIES:
+                        logging.info(f'action: consulta ganadores | result: success | agency: {requested_agency}')
+                        winners = list(filter(lambda x: x.agency == requested_agency, self._winners))
+                        client_sock.send_winners(winners)
+                    else:
+                        logging.info(f'action: consulta ganadores | result: failed | agency: {requested_agency}'
+                                     f' | msg: missing {MAX_AGENCIES - self._finished_agencies} agencies')
+                        client_sock.send_unavailable_winners()
+
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:

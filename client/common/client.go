@@ -86,4 +86,13 @@ func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 
 	// Close the connection
 	c.conn.Close()
+
+	// TODO Delete
+	time.Sleep(5 * time.Second)
+
+	c.createClientSocket()
+	result := sendRequestWinner(c.conn, c.id)
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(result))
+	sendCloseConnection(c.conn)
+	c.conn.Close()
 }
