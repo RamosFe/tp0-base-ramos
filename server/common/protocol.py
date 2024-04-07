@@ -2,6 +2,8 @@ import socket
 
 from .utils import Bet, BET_SEPARATOR
 
+MAX_AGENCIES = 5
+
 MSG_TYPE_SIZE = 1
 HEADER_SIZE = 2
 

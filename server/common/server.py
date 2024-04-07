@@ -2,8 +2,8 @@ import signal
 import socket
 import logging
 
-from .utils import store_bets
-from .protocol import AgencySocket, SEND_BET_MSG_TYPE, END_SEND_BET_MSG_TYPE, CLOSE_CONNECTION_MSG_TYPE
+from .utils import store_bets, load_bets, has_won
+from .protocol import AgencySocket, SEND_BET_MSG_TYPE, END_SEND_BET_MSG_TYPE, CLOSE_CONNECTION_MSG_TYPE, MAX_AGENCIES
 
 
 class Server:
@@ -12,9 +12,11 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
-        self._active_clients = []
 
-        self._id_counter = 0
+        self._active_clients = []
+        self._finished_agencies = 0
+        self._winners = []
+
         self._running = True
 
         # Define signal handlers
@@ -41,6 +43,12 @@ class Server:
         # TODO: Modify this program to handle signal to graceful shutdown
         # the server
         while self._running:
+            # Check if it is time to get the winners
+            if self._finished_agencies == MAX_AGENCIES:
+                logging.info("action: sorteo | result: success")
+                bets = load_bets()
+                self._winners = list(filter(lambda x: has_won(x), bets))
+
             try:
                 client_sock = self.__accept_new_connection()
                 self._active_clients.append(client_sock)
@@ -82,6 +90,9 @@ class Server:
                     client_sock.send_ack()
                 elif msg_type == END_SEND_BET_MSG_TYPE:
                     logging.info(f'action: fin de envio de apuestas | result: success | agency: {agency_id}')
+
+                    # Add 1 to finished agencies
+                    self._finished_agencies += 1
                 elif msg_type == CLOSE_CONNECTION_MSG_TYPE:
                     logging.info(f'action: mensaje de fin de conexión | result: success | agency: {agency_id}')
                     break
