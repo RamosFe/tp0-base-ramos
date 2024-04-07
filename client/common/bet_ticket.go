@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -23,6 +22,7 @@ type BetTicket struct {
 	document     uint
 	birthday     string
 	ticketNumber uint
+	agencyId     uint8
 }
 
 type BetTicketBatch struct {
@@ -67,33 +67,7 @@ func (b BetTicketBatch) ToBytes() []byte {
 	return b.data
 }
 
-func NewBetTicketFromEnv() (BetTicket, error) {
-	name := os.Getenv(EnvNameField)
-	surname := os.Getenv(EnvSurnameField)
-	documentStr := os.Getenv(EnvDocumentField)
-	birthdayStr := os.Getenv(EnvBirthdayField)
-	ticketNumberStr := os.Getenv(EnvTicketNumberField)
-
-	document, err := strconv.ParseUint(documentStr, 10, 32)
-	if err != nil {
-		return BetTicket{}, fmt.Errorf("failed to parse document: %w", err)
-	}
-
-	ticketNumber, err := strconv.ParseUint(ticketNumberStr, 10, 32)
-	if err != nil {
-		return BetTicket{}, fmt.Errorf("failed to parse ticket number: %w", err)
-	}
-
-	return BetTicket{
-		name:         name,
-		surname:      surname,
-		document:     uint(document),
-		birthday:     birthdayStr,
-		ticketNumber: uint(ticketNumber),
-	}, nil
-}
-
-func NewBetTicketFromStr(data string) (BetTicket, error) {
+func NewBetTicketFromStr(agencyId uint8, data string) (BetTicket, error) {
 	splitData := strings.Split(data, ",")
 	if len(splitData) != 5 {
 		return BetTicket{}, fmt.Errorf("failed to parse data: %w", data)
@@ -115,6 +89,7 @@ func NewBetTicketFromStr(data string) (BetTicket, error) {
 		document:     uint(document),
 		birthday:     splitData[3],
 		ticketNumber: uint(ticketNumber),
+		agencyId:     agencyId,
 	}, nil
 }
 
@@ -123,7 +98,8 @@ func (b BetTicket) ToString() string {
 		b.surname + BetTicketFieldSeparator +
 		fmt.Sprint(b.document) + BetTicketFieldSeparator +
 		b.birthday + BetTicketFieldSeparator +
-		fmt.Sprint(b.ticketNumber)
+		fmt.Sprint(b.ticketNumber) + BetTicketFieldSeparator +
+		fmt.Sprint(b.agencyId)
 }
 
 func (b BetTicket) ToBytes() []byte {

@@ -14,7 +14,6 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self._active_clients = []
 
-        self._agencies_id = {}
         self._id_counter = 0
         self._running = True
 
@@ -103,14 +102,10 @@ class Server:
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
-        # Adds unique id to address
-        if not addr[0] in self._agencies_id:
-            self._id_counter += 1
-            self._agencies_id[addr[0]] = self._id_counter
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
 
         # Create Agency Socket
-        agency_socket = AgencySocket(str(self._agencies_id[addr[0]]), c)
+        agency_socket = AgencySocket(c)
         return agency_socket
 
     def __shutdown(self):

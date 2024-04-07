@@ -132,6 +132,18 @@ func main() {
 		log.Fatalf("Invalid batch size: %v %v", batchSize, convErr)
 	}
 
-	client := common.NewClient(clientConfig)
+	// Get Agency ID
+	agencyIdStr, exists := os.LookupEnv(EnvAgencyId)
+	if !exists {
+		log.Fatalf("No agency id specified")
+		return
+	}
+
+	agencyId, convErr := strconv.ParseUint(agencyIdStr, 10, 8)
+	if convErr != nil {
+		log.Fatalf("Invalid agency id: %v %v", agencyIdStr, convErr)
+	}
+
+	client := common.NewClient(byte(agencyId), clientConfig)
 	client.StartClientLoop(fileScanner, uint16(batchSizeNumber))
 }

@@ -14,9 +14,8 @@ ACK_NUMBER_OF_BYTES = 1
 
 
 class AgencySocket:
-    def __init__(self, agency_id: str, sock: socket.socket):
+    def __init__(self, sock: socket.socket):
         self._internal_socket = sock
-        self._id = agency_id
 
     def send(self, msg: bytes):
         data_sent = 0
@@ -58,7 +57,7 @@ class AgencySocket:
         payload = self.recv(size_of_payload).decode('utf-8')
         list_of_bets = []
         for bet_data in payload.split(BET_SEPARATOR):
-            list_of_bets.append(Bet.from_str(self._id, bet_data))
+            list_of_bets.append(Bet.from_str(bet_data))
 
         return list_of_bets
 

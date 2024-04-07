@@ -19,14 +19,16 @@ type ClientConfig struct {
 // Client Entity that encapsulates how
 type Client struct {
 	config ClientConfig
+	id     uint8
 	conn   net.Conn
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
-func NewClient(config ClientConfig) *Client {
+func NewClient(id uint8, config ClientConfig) *Client {
 	client := &Client{
 		config: config,
+		id:     id,
 	}
 	return client
 }
@@ -51,12 +53,11 @@ func (c *Client) createClientSocket() error {
 func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 	// Create the connection to the server
 	c.createClientSocket()
-	// TODO Change hardcoded
 	batch := NewBatch(batchSize)
 
 	// Get the bet ticket from environment variables
 	for betScanner.Scan() {
-		betTicketToSend, err := NewBetTicketFromStr(betScanner.Text())
+		betTicketToSend, err := NewBetTicketFromStr(c.id, betScanner.Text())
 		if err != nil {
 			log.Errorf("action: get ticket | result: fail | error: %v", err)
 			return
