@@ -72,6 +72,7 @@ este script dentro de la red que levanta `docker` se agrego un nuevo servicio a 
     container_name: netcat
     image: alpine:latest
     entrypoint: [ "/bin/sh", "./netcat-script.sh" ]
+    profiles: [netcat]
     networks:
       - testing_net
     depends_on:
@@ -84,6 +85,17 @@ Este servicio usa como imagen base `alpine:latest`. Se utilizo esta imagen debid
 las funcionalidades necesarias y solo pesa `5MB`, haciendola ideal para la ejecución de scripts de este
 estilo. Además se utilizo un mount bind para mappear el script en la maquina host con el container y asi
 poder probar el script sin necesidad de rebuildear la imagen.
+
+Tambien se agregaron nuevos targets en el `Makefile` para el manejo de docker compose con el profile `netcat`. Los
+nuevos targets son los siguientes:
+- `docker-compose-netcat-up`: Equivalente a `docker-compose-up` pero usando el `profile` netcat.
+- `docker-compose-netcat-logs`: Equivalente a `docker-compose-logs` pero usando el `profile` netcat.
+- `docker-compose-netcat-down`: Equivalente a `docker-compose-down` pero usando el `profile` netcat.
+
+> Aclaración: Si se utiliza `docker-compose-netcat-up` para levantar el ambiente, se debe utilizar los targets
+> que incluyen el `profile` netcat para acceder a los logs y para terminar su ejecución y remover los
+> respectivos containers, networks, volumenes, e imágenes.
+
 
 # Ejercicio 4
 ### Cliente
@@ -203,5 +215,5 @@ por el nuevo separador e ir obteniendo cada uno de los bets individualmente. Ade
 ```
 
 `BATCHSIZE` especifica el tamaño máximo de un batch y este mismo puede tener un valor de hasta `8KB`, por esta
-razón el `header` es representado por un `uint16` que ocupa 2 bytes y puede representar números 
+razón el `header` es representado por un `uint16` que ocupa 2 bytes y puede representar números
 mayores a `8192 (8KB en bytes)`.
