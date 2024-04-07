@@ -2,7 +2,13 @@ import socket
 
 from .utils import Bet, BET_SEPARATOR
 
+MSG_TYPE_SIZE = 1
 HEADER_SIZE = 2
+
+SEND_BET_MSG_TYPE = 1
+END_SEND_BET_MSG_TYPE = 2
+CLOSE_CONNECTION_MSG_TYPE = 3
+
 ACK_VALUE = 1
 ACK_NUMBER_OF_BYTES = 1
 
@@ -38,6 +44,10 @@ class AgencySocket:
 
     def get_peername(self):
         return self._internal_socket.getpeername()
+
+    def recv_msg_type(self) -> int:
+        msg_type = self.recv(MSG_TYPE_SIZE)
+        return int.from_bytes(msg_type, 'big')
 
     def recv_tickets(self) -> Bet:
         size_of_payload = self.recv(HEADER_SIZE)

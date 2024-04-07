@@ -77,6 +77,12 @@ func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 		sendBetBatch(c.conn, &batch)
 	}
 
+	// Send End bet batches
+	sendEndSendBet(c.conn)
+
+	// Send close connection signal
+	sendCloseConnection(c.conn)
+
 	// Close the connection
 	c.conn.Close()
 }

@@ -3,7 +3,7 @@ import socket
 import logging
 
 from .utils import store_bets
-from .protocol import AgencySocket
+from .protocol import AgencySocket, SEND_BET_MSG_TYPE, END_SEND_BET_MSG_TYPE, CLOSE_CONNECTION_MSG_TYPE
 
 
 class Server:
@@ -63,21 +63,33 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+        agency_id = None
+
         try:
             while True:
-                # Receive the message from the client
-                bets = client_sock.recv_tickets()
+                msg_type = client_sock.recv_msg_type()
+                if msg_type == SEND_BET_MSG_TYPE:
+                    # Receive the message from the client
+                    bets = client_sock.recv_tickets()
 
-                # Stores bet
-                store_bets(bets)
-                for bet in bets:
-                    logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+                    # Stores bet
+                    store_bets(bets)
+                    for bet in bets:
+                        if not agency_id:
+                            agency_id = bet.agency
+                        logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
 
-                # Handle properly the ACK
-                client_sock.send_ack()
+                    # Handle properly the ACK
+                    client_sock.send_ack()
+                elif msg_type == END_SEND_BET_MSG_TYPE:
+                    logging.info(f'action: fin de envio de apuestas | result: success | agency: {agency_id}')
+                elif msg_type == CLOSE_CONNECTION_MSG_TYPE:
+                    logging.info(f'action: mensaje de fin de conexión | result: success | agency: {agency_id}')
+                    break
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
+            logging.info(f'action: close client socket | result: success | agency: {agency_id}')
             client_sock.close()
 
     def __accept_new_connection(self):
