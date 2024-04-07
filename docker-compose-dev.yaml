@@ -20,6 +20,11 @@ services:
     environment:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
+      - NOMBRE=Santiago Lionel
+      - APELLIDO=Lorca
+      - DOCUMENTO=30904465
+      - NACIMIENTO=1999-03-17
+      - NUMERO=7574
     networks:
       - testing_net
     depends_on:
@@ -34,12 +39,18 @@ services:
     environment:
       - CLI_ID=2
       - CLI_LOG_LEVEL=DEBUG
+      - NOMBRE=Federico
+      - APELLIDO=Ramos
+      - DOCUMENTO=40566677
+      - NACIMIENTO=1997-09-19
+      - NUMERO=6000
     networks:
       - testing_net
     depends_on:
       - server
     volumes:
       - ./config/client/config.yaml:/config.yaml
+
 
   netcat:
     container_name: netcat
@@ -52,6 +63,7 @@ services:
       - server
     volumes:
       - ./scripts/netcat-script.sh:/netcat-script.sh
+
 
 networks:
   testing_net:
