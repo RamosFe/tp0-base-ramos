@@ -1,9 +1,8 @@
 import signal
 import socket
 import logging
-import sys
 
-from .utils import Bet, store_bets
+from .utils import store_bets
 from .protocol import AgencySocket
 
 
