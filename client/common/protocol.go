@@ -59,7 +59,7 @@ func sendBet(connection net.Conn, ticket *BetTicket) {
 func sendBetBatch(connection net.Conn, batch *BetTicketBatch) {
 	// Create and send the message
 	message := NewMessage(batch)
-	_, err := connection.Write(message.ToBytes())
+	err := writeToSocket(connection, message.ToBytes())
 	if err != nil {
 		log.Errorf("action: send_message | result: fail | error: %v", err)
 		return
@@ -67,7 +67,7 @@ func sendBetBatch(connection net.Conn, batch *BetTicketBatch) {
 
 	// Read acknowledgment message
 	ackMesg := make([]byte, AckMsgSize)
-	_, err = connection.Read(ackMesg)
+	err = readFromSocket(connection, &ackMesg, AckMsgSize)
 	if err != nil {
 		log.Errorf("action: receive_ack | result: fail | error: %v", err)
 		return

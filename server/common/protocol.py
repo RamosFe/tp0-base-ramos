@@ -7,7 +7,6 @@ ACK_VALUE = 1
 ACK_NUMBER_OF_BYTES = 1
 
 
-
 class AgencySocket:
     def __init__(self, agency_id: str, sock: socket.socket):
         self._internal_socket = sock
