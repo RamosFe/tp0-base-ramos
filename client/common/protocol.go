@@ -35,15 +35,15 @@ func (m *Message) ToBytes() []byte {
 func sendBet(connection net.Conn, ticket *BetTicket) {
 	// Create and send the message
 	message := NewMessage(ticket)
-	_, err := connection.Write(message.ToBytes())
+	err := writeToSocket(connection, message.ToBytes())
 	if err != nil {
 		log.Errorf("action: send_message | result: fail | error: %v", err)
 		return
 	}
 
 	// Read acknowledgment message
-	ackMesg := make([]byte, AckMsgSize)
-	_, err = connection.Read(ackMesg)
+	ackMsg := make([]byte, AckMsgSize)
+	err = readFromSocket(connection, &ackMsg, AckMsgSize)
 	if err != nil {
 		log.Errorf("action: receive_ack | result: fail | error: %v", err)
 		return
