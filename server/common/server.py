@@ -16,9 +16,9 @@ class Server:
 
         self._active_clients = []
         self._finished_agencies = 0
-        self._winners = []
 
         self._running = True
+        self._available_winners = False
 
         # Define signal handlers
         signal.signal(signal.SIGINT, self.__handle_signal)
@@ -43,10 +43,9 @@ class Server:
 
         while self._running:
             # Check if it is time to get the winners
-            if self._finished_agencies == MAX_AGENCIES:
+            if self._finished_agencies == MAX_AGENCIES and not self._available_winners:
                 logging.info("action: sorteo | result: success")
-                bets = load_bets()
-                self._winners = list(filter(lambda x: has_won(x), bets))
+                self._available_winners = True
 
             try:
                 client_sock = self.__accept_new_connection()
@@ -100,9 +99,10 @@ class Server:
                     requested_agency = client_sock.recv_agency_id()
                     agency_id = requested_agency
 
-                    if self._finished_agencies == MAX_AGENCIES:
+                    if self._available_winners:
                         logging.info(f'action: consulta ganadores | result: success | agency: {requested_agency}')
-                        winners = list(filter(lambda x: x.agency == requested_agency, self._winners))
+                        bets = load_bets()
+                        winners = list(filter(lambda x: has_won(x) and x.agency == requested_agency, bets))
                         client_sock.send_winners(winners)
                     else:
                         logging.info(f'action: consulta ganadores | result: failed | agency: {requested_agency}'
