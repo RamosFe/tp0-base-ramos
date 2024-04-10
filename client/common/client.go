@@ -89,10 +89,32 @@ func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 
 	// TODO Delete
 	time.Sleep(5 * time.Second)
+	timeToSleep := 0.5
 
-	c.createClientSocket()
-	result := sendRequestWinner(c.conn, c.id)
-	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(result))
-	sendCloseConnection(c.conn)
-	c.conn.Close()
+	for true {
+		c.createClientSocket()
+		result, err := sendRequestWinner(c.conn, c.id)
+		if err != nil && err != NotAvailableWinnersErr {
+			log.Errorf("action: consulta_ganadores | result: fail | msg: %v", err)
+			sendCloseConnection(c.conn)
+			c.conn.Close()
+			return
+		}
+
+		if err != NotAvailableWinnersErr {
+			log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(result))
+			sendCloseConnection(c.conn)
+			c.conn.Close()
+			return
+		} else {
+			log.Infof("action: consulta_ganadores | result: not_available | msg: retrying in %v seconds",
+				timeToSleep)
+			time.Sleep(time.Duration(timeToSleep) * time.Second)
+			timeToSleep *= 2
+		}
+
+		sendCloseConnection(c.conn)
+		c.conn.Close()
+	}
+
 }

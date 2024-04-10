@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/binary"
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"strings"
@@ -11,6 +12,8 @@ const MaxBatchSize = 8192
 const HeaderSize = 2
 const AckMsgSize = 1
 const MsgTypeSize = 1
+
+var NotAvailableWinnersErr error = fmt.Errorf("not available winners")
 
 type MessageType byte
 
@@ -118,12 +121,12 @@ func sendBetBatch(connection net.Conn, batch *BetTicketBatch) {
 	}
 }
 
-func sendRequestWinner(connection net.Conn, agencyId byte) []string {
+func sendRequestWinner(connection net.Conn, agencyId byte) ([]string, error) {
 	message := NewRequestWinnersMessage(NewWinnerRequest(agencyId))
 	err := writeToSocket(connection, message.ToBytes())
 	if err != nil {
 		log.Errorf("action: send_message | result: fail | error: %v", err)
-		return nil
+		return nil, err
 	}
 
 	// Read response message type
@@ -131,7 +134,7 @@ func sendRequestWinner(connection net.Conn, agencyId byte) []string {
 	err = readFromSocket(connection, &msgType, MsgTypeSize)
 	if err != nil {
 		log.Errorf("action: receive_winners | result: fail | error: %v", err)
-		return nil
+		return nil, err
 	}
 
 	if msgType[0] == byte(AvailableWinner) {
@@ -140,6 +143,7 @@ func sendRequestWinner(connection net.Conn, agencyId byte) []string {
 		err = readFromSocket(connection, &msgHeader, HeaderSize)
 		if err != nil {
 			log.Errorf("action: recive_winners | result: fail | error %v", err)
+			return nil, err
 		}
 
 		msgHeaderValue := binary.BigEndian.Uint16(msgHeader)
@@ -149,6 +153,7 @@ func sendRequestWinner(connection net.Conn, agencyId byte) []string {
 		err = readFromSocket(connection, &msgPayload, int(msgHeaderValue))
 		if err != nil {
 			log.Errorf("action: recive_winners | result: fail | error %v", err)
+			return nil, err
 		}
 		payloadData := string(msgPayload[:])
 		listOfDocuments := strings.Split(payloadData, ",")
@@ -160,14 +165,14 @@ func sendRequestWinner(connection net.Conn, agencyId byte) []string {
 			}
 		}
 
-		return finalList
+		return finalList, nil
 	}
 
 	if msgType[0] == byte(UnavailableWinner) {
-		return nil
+		return nil, NotAvailableWinnersErr
 	}
 
-	return nil
+	return nil, fmt.Errorf("invalid msg type %v", msgType[0])
 }
 
 func sendEndSendBet(connection net.Conn) {
