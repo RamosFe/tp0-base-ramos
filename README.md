@@ -151,7 +151,7 @@ Se agrega un protocolo que se compone de la siguiente manera:
 - Payload: El contenido del mensaje
 
 Este estructura para el protocolo nos permite mandar mensajes de un tamaño variable , permitiendo al servidor
-conocer este tamaño al leer los primeros 2 bytes del mensaje, evitando `short reads`. Un mensaje del procolo se ve
+conocer este tamaño al leer los primeros 2 bytes del mensaje. Un mensaje del procolo se ve
 de la siguiente manera:
 ```go
 // Ejemplo de estructura de un mensaje
@@ -192,6 +192,40 @@ Una vez obtenido el tamaño `N`, lee los proximos `N` bytes para obtener el mens
 utilizando el separador y obtiene el bet que luego almacena utilizando `store_bets`. Una vez almacenado, manda un ACK
 al cliente.
 
+## Manejo de Short Read/ Short Write
+
+Para el manejo de este tipo de errores se creo una abstracción, tanto en el cliente como en el servidor. Para esta explicación
+vamos a usar de ejemplo el código del servidor. En el caso de la lectura, se valida la cantidad de bytes enviados y se
+vuelve a enviar hasta que se alcanza la cantidad esperada. En el caso de la escritura, se pasa un expected size y se
+lee del socket hasta recibir la cantidad de bytes esperados, como se muestra en el código:
+
+```python
+    def send(self, msg: bytes):
+        data_sent = 0
+        while data_sent < len(msg):
+            bytes_sent = self._internal_socket.send(msg)
+            if bytes_sent == 0:
+                raise OSError("connection was closed")
+
+            data_sent += bytes_sent
+
+    def recv(self, size: int) -> bytes:
+        buffer = []
+        data_read = 0
+
+        while data_read < size:
+            expected_size = size - data_read
+            data = self._internal_socket.recv(expected_size)
+            if data == b'':
+                raise OSError("connection was closed")
+
+            data_read += len(data)
+            buffer.append(data)
+```
+
+> En el caso del cliente, tambien se debe tener en cuenta que al utilizar `Write`, este devuelve el error `ErrShortWrite`
+> en caso de un short write y se debe tener en cuenta este error para replicar la misma lógica que se usa en el server.
+
 # Ejercicio 6
 En el ejercicio 6 se agrego un nuevo separador para poder varios bets. Este separador separada los distintos
 bets de la siguiente manera:
@@ -200,7 +234,12 @@ header bet|bet|bet|bet
 ```
 
 De este manera el servidor simplemente debe seguir la misma lógica que el ejercicio anterior, pero primero separar
-por el nuevo separador e ir obteniendo cada uno de los bets individualmente. Además se agrego un nuevo `env` variable:
+por el nuevo separador e ir obteniendo cada uno de los bets individualmente. Tambien se agrega un nuevo mensaje para
+señalizar al servidor que se termino el envio de bets.
+
+## Batch Size variable
+
+El batch size es configurable a traves de una nueva `env` variable:
 
 ```
   client2:
@@ -216,4 +255,105 @@ por el nuevo separador e ir obteniendo cada uno de los bets individualmente. Ade
 
 `BATCHSIZE` especifica el tamaño máximo de un batch y este mismo puede tener un valor de hasta `8KB`, por esta
 razón el `header` es representado por un `uint16` que ocupa 2 bytes y puede representar números
-mayores a `8192 (8KB en bytes)`.
+mayores a `8192 (8KB en bytes)`
+
+## Cambios en el protocolo
+
+Se cambio la estructura del protocolo para poder abarcar distintos tipos de mensajes. Ahora el protocolo puede tener 2
+formatos:
+```
+# Mensaje con contenido
+msgType (1 byte) | header (2 byte) | payload (variable)
+
+# Mensaje para señalizar un cambio (Ej: fin de envio de batches, cerrado de conexión)
+msgType (1 byte)
+```
+
+Al agregar el byte que representa el `msgType` podemos manejar distintos tipos de mensajes y distintos tipos de paquetes
+para no tener que usar el formato `header | payload` para mensajes que solo sirven para señalizar algun evento al
+servidor.
+
+# Ejercicio 7
+
+Se agregan varios tipos de mensajes para consultar los winners al servidor:
+- Request Winner: Utilizado por el cliente para pedirle los winners a el servidor.
+- Available Winners: Utilizado por el servidor para responder con una lista de DNI de los winners de la agencia.
+- Unavailable Winners: Utilizado por el servidor para notificar al cliente que todavia no estan disponibles los ganadores
+
+Una vez que el cliente termina de enviar todos los bets, empieza un loop en el que le pide al servidor la información de 
+los winners. En caso de que esta información no esta disponible, espera un tiempo y se vuelve a pedir la información. El
+tiempo de espera va creciendo a lo largo del tiempo, como se muestra en el siguiente código:
+```go
+timeToSleep := 0.5
+
+for true {
+	c.createClientSocket()
+    result, err := sendRequestWinner(c.conn, c.id)
+    if err != nil && err != NotAvailableWinnersErr {
+        log.Errorf("action: consulta_ganadores | result: fail | msg: %v", err)
+        sendCloseConnection(c.conn)
+        c.conn.Close()
+        return
+    }
+
+  
+    if err != NotAvailableWinnersErr {
+        log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(result))
+        sendCloseConnection(c.conn)
+        c.conn.Close()
+        return
+    } else {
+        log.Infof("action: consulta_ganadores | result: not_available | msg: retrying in %v seconds",
+        timeToSleep)
+        time.Sleep(time.Duration(timeToSleep) * time.Second)
+        timeToSleep *= 2
+	}
+
+
+    sendCloseConnection(c.conn)
+    c.conn.Close()
+}
+```
+
+> Aclaración: Debido que para el ej7 todavia se utiliza un servidor que solo puede manejar 1 cliente a la vez
+> el cliente cierra la conexion y vuelve a conectarse para cada request de winners. Esta lógica es reemplazada para el ej8
+> donde el servidor puede manejar varios clientes al mismo tiempo.
+
+# Ejercicio 8
+
+Para el ejercicio 8 se utilizo la libreria de `multiprocessing` de Python. Los principales 2 componentes de la solución
+son:
+- Pool: Se utiliza un pool de procesos para la creación de nuevos procesos. Cuando se conecta un nuevo cliente al servidor
+este crea un proceso en el pool. Se utiliza el `Context Manager` del pool para manejar el shutdown de los procesos y del
+pool de manera automática una vez que se sale del contexto.
+- Manager: Debido a que tenemos 2 funciones que no pueden ser accedidas concurrentemente (`store_bets` y `load_bets`),
+se utiliza un Manager para poder compartila entre varios procesos. Este Manager se encarga de garantizar que no haya 2
+procesos utilizando el `StoreManager` al mismo tiempo, permitiendo compartir el recurso entre varios procesos.
+
+El `StorageManager` se encarga de manejar todo lo relacionado a los bets, al igual que mantener el conteo de cuantos
+agentes enviaron sus bets para validar si se puede acceder o no a los winners:
+
+```python
+class StoreManager:
+    def __init__(self, number_of_agencies: int):
+        self._expected_agencies = number_of_agencies
+        self._finished_agencies = 0
+
+    def winners_available(self) -> bool:
+        return self._expected_agencies == self._finished_agencies
+
+    def notify_agency_finished(self):
+        self._finished_agencies += 1
+
+        if self.winners_available():
+            logging.info("action: sorteo | result: success")
+
+    def store_bet(self, bets: List[Bet]):
+        store_bets(bets)
+
+    def get_winners(self, agency_id) -> List[Bet]:
+        bets = load_bets()
+        winners = list(filter(lambda x: has_won(x) and x.agency == agency_id, bets))
+        return winners
+
+```
