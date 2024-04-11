@@ -60,6 +60,8 @@ func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 		betTicketToSend, err := NewBetTicketFromStr(c.id, betScanner.Text())
 		if err != nil {
 			log.Errorf("action: get ticket | result: fail | error: %v", err)
+			sendCloseConnection(c.conn)
+			c.conn.Close()
 			return
 		}
 
@@ -81,18 +83,9 @@ func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 	// Send End bet batches
 	sendEndSendBet(c.conn)
 
-	// Send close connection signal
-	sendCloseConnection(c.conn)
-
-	// Close the connection
-	c.conn.Close()
-
-	// TODO Delete
-	time.Sleep(5 * time.Second)
 	timeToSleep := 0.5
 
 	for true {
-		c.createClientSocket()
 		result, err := sendRequestWinner(c.conn, c.id)
 		if err != nil && err != NotAvailableWinnersErr {
 			log.Errorf("action: consulta_ganadores | result: fail | msg: %v", err)
@@ -112,9 +105,8 @@ func (c *Client) StartClientLoop(betScanner *bufio.Scanner, batchSize uint16) {
 			time.Sleep(time.Duration(timeToSleep) * time.Second)
 			timeToSleep *= 2
 		}
-
-		sendCloseConnection(c.conn)
-		c.conn.Close()
 	}
 
+	sendCloseConnection(c.conn)
+	c.conn.Close()
 }
